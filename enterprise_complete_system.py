@@ -58,6 +58,7 @@ import webbrowser
 from collections import defaultdict
 from functools import wraps
 import logging
+import sys   # ✅ REQUIRED import
 
 # Import core logic from phases
 from phase2_production_system import OntologyManager, ProductionCVE, MetricsTracker
@@ -69,6 +70,11 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 import numpy as np
 from scipy import stats
 import pandas as pd
+
+# 🔥 ENSURE PYTHON CAN FIND THE routes/ FOLDER ON RENDER
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+# 🔥 BLUEPRINT IMPORTS
 from routes.project_routes import project_bp
 from routes.dataset_routes import dataset_bp
 from routes.item_routes import item_bp
@@ -76,6 +82,7 @@ from routes.annotation_routes import annotation_bp
 from routes.export_routes import export_bp
 from routes.training_routes import training_bp
 from routes.admin_routes import admin_bp
+
 
 
 # Database
@@ -1103,6 +1110,7 @@ def open_browser():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
 
 
