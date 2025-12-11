@@ -45,15 +45,11 @@ import webbrowser
 from collections import defaultdict, Counter
 import statistics
 
-try:
-    from flask import Flask, render_template_string, request, jsonify, session
-    import numpy as np
-    from scipy import stats
-    from sklearn.metrics import cohen_kappa_score
-    HAS_DEPS = True
-except:
-    print("❌ Install: pip install flask numpy scipy scikit-learn")
-    exit(1)
+from flask import Flask, render_template_string, request, jsonify, send_file
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+import numpy as np
+from scipy import stats
+import pandas as pd
 
 try:
     from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, Text, JSON
@@ -1169,4 +1165,5 @@ if __name__ == '__main__':
     
     threading.Thread(target=open_browser, daemon=True).start()
     
+
     app.run(debug=False, host='127.0.0.1', port=5001, threaded=True)
