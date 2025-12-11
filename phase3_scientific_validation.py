@@ -66,6 +66,7 @@ try:
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
+    torch = None    # ← ADD THIS LINE
     nn = None
     optim = None
     Dataset = None
@@ -1006,6 +1007,7 @@ class ExperimentController:
             "model_improvement": model_improvement,
             "fewer_errors": int((baseline_model['final_accuracy'] - cve_model['final_accuracy']) / 100 * len(baseline_samples))
         }
+
 
 
 
