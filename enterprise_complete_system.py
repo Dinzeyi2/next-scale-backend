@@ -69,6 +69,13 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 import numpy as np
 from scipy import stats
 import pandas as pd
+from routes.project_routes import project_bp
+from routes.dataset_routes import dataset_bp
+from routes.item_routes import item_bp
+from routes.annotation_routes import annotation_bp
+from routes.export_routes import export_bp
+from routes.training_routes import training_bp
+from routes.admin_routes import admin_bp
 
 
 # Database
@@ -603,6 +610,18 @@ app.config['MAX_CONTENT_LENGTH'] = 1000 * 1024 * 1024  # 1GB max
 
 jwt = JWTManager(app)
 
+# ============================================================================
+# REGISTER BLUEPRINTS (ADD THIS SECTION)
+# ============================================================================
+
+app.register_blueprint(project_bp)
+app.register_blueprint(dataset_bp)
+app.register_blueprint(item_bp)
+app.register_blueprint(annotation_bp)
+app.register_blueprint(export_bp)
+app.register_blueprint(training_bp)
+app.register_blueprint(admin_bp)
+
 
 # ============================================================================
 # API ENDPOINTS
@@ -1084,5 +1103,6 @@ def open_browser():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
 
