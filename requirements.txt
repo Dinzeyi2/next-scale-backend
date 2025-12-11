@@ -1,0 +1,15 @@
+flask
+flask-jwt-extended
+sqlalchemy
+numpy
+scipy
+pandas
+pillow
+opencv-python
+boto3
+torch
+torchvision
+datasets
+celery
+redis
+flask-cors
