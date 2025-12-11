@@ -55,6 +55,7 @@ from scipy import stats
 import pandas as pd
 
 # ML imports
+# Optional ML imports (PyTorch)
 try:
     import torch
     import torch.nn as nn
@@ -63,9 +64,15 @@ try:
     import torchvision.transforms as transforms
     import torchvision.models as models
     HAS_TORCH = True
-except:
-    print("⚠️  PyTorch not installed: pip install torch torchvision")
+except ImportError:
     HAS_TORCH = False
+    nn = None
+    optim = None
+    Dataset = None
+    DataLoader = None
+    transforms = None
+    models = None
+
 
 # HuggingFace imports
 try:
@@ -1452,4 +1459,5 @@ if __name__ == '__main__':
     
 
     app.run(debug=False, host='127.0.0.1', port=5003, threaded=True)
+
 
