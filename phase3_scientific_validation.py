@@ -493,7 +493,7 @@ class RealModelTrainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"   Using device: {self.device}")
     
-    def create_simple_classifier(self, num_classes: int) -> nn.Module:
+    def create_simple_classifier(self, num_classes: int):
         """Create simple neural network."""
         
         class SimpleClassifier(nn.Module):
@@ -1459,5 +1459,6 @@ if __name__ == '__main__':
     
 
     app.run(debug=False, host='127.0.0.1', port=5003, threaded=True)
+
 
 
