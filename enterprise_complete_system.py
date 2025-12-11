@@ -76,7 +76,6 @@ from scipy import stats
 import pandas as pd
 
 # 🔥 BLUEPRINT IMPORTS
-from routes.project_routes import project_bp
 from routes.dataset_routes import dataset_bp
 from routes.item_routes import item_bp
 from routes.annotation_routes import annotation_bp
@@ -1110,6 +1109,7 @@ def open_browser():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
 
 
