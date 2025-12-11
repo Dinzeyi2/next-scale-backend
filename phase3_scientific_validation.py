@@ -50,16 +50,11 @@ from collections import defaultdict, Counter
 import pickle
 
 # Core imports
-try:
-    from flask import Flask, render_template_string, request, jsonify, send_file
-    import numpy as np
-    from scipy import stats
-    from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
-    import pandas as pd
-    HAS_CORE = True
-except:
-    print("❌ Install core: pip install flask numpy scipy scikit-learn pandas")
-    exit(1)
+from flask import Flask, render_template_string, request, jsonify, send_file
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+import numpy as np
+from scipy import stats
+import pandas as pd
 
 # ML imports
 try:
@@ -1457,4 +1452,5 @@ if __name__ == '__main__':
     
     threading.Thread(target=open_browser, daemon=True).start()
     
+
     app.run(debug=False, host='127.0.0.1', port=5003, threaded=True)
