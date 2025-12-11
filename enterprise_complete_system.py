@@ -64,16 +64,12 @@ from phase2_production_system import OntologyManager, ProductionCVE, MetricsTrac
 from phase3_scientific_validation import ExperimentController
 
 # Core imports
-try:
-    from flask import Flask, render_template_string, request, jsonify, send_file
-    from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
-    import numpy as np
-    from scipy import stats
-    import pandas as pd
-    HAS_FLASK = True
-except ImportError:
-    print("❌ Install: pip install flask flask-jwt-extended numpy scipy pandas")
-    exit(1)
+from flask import Flask, render_template_string, request, jsonify, send_file
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+import numpy as np
+from scipy import stats
+import pandas as pd
+
 
 # Database
 try:
@@ -1122,4 +1118,5 @@ if __name__ == '__main__':
     threading.Thread(target=open_browser, daemon=True).start()
     
     # Start server
+
     app.run(debug=False, host='127.0.0.1', port=8000, threaded=True)
