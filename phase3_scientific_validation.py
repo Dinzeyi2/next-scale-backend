@@ -490,14 +490,19 @@ class RealLabelingSimulator:
 class RealModelTrainer:
     """Train REAL neural networks on labeled data."""
     
+class RealModelTrainer:
+    """Train REAL neural networks on labeled data."""
+    
     def __init__(self):
-    if not HAS_TORCH:
-        print("⚠️  PyTorch not installed — using simulated training.")
-        self.device = "cpu"
-        return
+        # If PyTorch is missing, use simulation mode
+        if not HAS_TORCH:
+            print("⚠️  PyTorch not installed — using simulated training.")
+            self.device = "cpu"
+            return
 
-    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"   Using device: {self.device}")
+        # If PyTorch exists, use real device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"   Using device: {self.device}")
 
     def create_simple_classifier(self, num_classes: int):
         """Create simple neural network."""
@@ -1012,6 +1017,7 @@ class ExperimentController:
             "model_improvement": model_improvement,
             "fewer_errors": int((baseline_model['final_accuracy'] - cve_model['final_accuracy']) / 100 * len(baseline_samples))
         }
+
 
 
 
