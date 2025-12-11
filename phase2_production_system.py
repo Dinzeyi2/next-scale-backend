@@ -169,7 +169,8 @@ class QualityMetric(Base):
     timestamp = Column(DateTime, default=datetime.now, index=True)
     metric_type = Column(String(50))
     value = Column(Float)
-    metadata = Column(JSON)
+    metadata_json = Column(JSON)
+
 
 
 # ============================================================================
@@ -1129,4 +1130,5 @@ if __name__ == '__main__':
     
 
     app.run(debug=False, host='127.0.0.1', port=5002, threaded=True)
+
 
