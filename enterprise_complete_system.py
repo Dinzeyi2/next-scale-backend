@@ -1083,40 +1083,6 @@ def open_browser():
     time.sleep(1.5)
     webbrowser.open('http://127.0.0.1:8000')
 
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
 
-if __name__ == '__main__':
-    print("\n" + "="*80)
-    print("🏭 COMPLETE ENTERPRISE SYSTEM")
-    print("="*80)
-    print("\n✅ Enterprise Features:")
-    print("   • JWT authentication")
-    print("   • Dataset upload API (images/videos/text/audio)")
-    print("   • Cloud storage (S3 or local)")
-    print("   • Background workers (Celery or threading)")
-    print("   • System monitoring & health checks")
-    print("   • Audit logging")
-    print("   • Role-based access control")
-    print("\n✅ Core Intelligence (Phase 1-3):")
-    print("   • Binary-anchored labeling")
-    print("   • Formal logic CVE")
-    print("   • Multi-annotator consensus")
-    print("   • Scientific validation")
-    print("\n🔐 Default Admin Account:")
-    print("   Username: admin")
-    print("   Password: admin123")
-    print("   (Change after first login!)")
-    print("\n🌐 Starting server...")
-    print("   URL: http://127.0.0.1:8000")
-    print("   API Docs: http://127.0.0.1:8000")
-    print("\n⚠️  Press CTRL+C to stop")
-    print("="*80 + "\n")
-    
-    # Create admin user
-    create_admin_user()
-    
-    # Open browser
-    threading.Thread(target=open_browser, daemon=True).start()
-    
-    # Start server
-
-    app.run(debug=False, host='127.0.0.1', port=8000, threaded=True)
