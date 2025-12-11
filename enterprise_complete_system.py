@@ -252,8 +252,7 @@ class SystemMetric(Base):
     metric_name = Column(String(100))
     metric_value = Column(Float)
     timestamp = Column(DateTime, default=datetime.now, index=True)
-    metadata = Column(JSON)
-
+    metadata_json = Column(JSON)  # ✅ FIXED: Rename column
 
 # ============================================================================
 # DATABASE ENGINE
@@ -1085,4 +1084,5 @@ def open_browser():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
