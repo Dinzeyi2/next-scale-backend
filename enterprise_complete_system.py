@@ -616,29 +616,25 @@ app.config['MAX_CONTENT_LENGTH'] = 1000 * 1024 * 1024  # 1GB max
 
 jwt = JWTManager(app)
 
-# ============================================================================
-# REGISTER BLUEPRINTS (ADD THIS SECTION)
-# ============================================================================
-
-app.register_blueprint(project_bp)
-app.register_blueprint(dataset_bp)
-app.register_blueprint(item_bp)
-app.register_blueprint(annotation_bp)
-app.register_blueprint(export_bp)
-app.register_blueprint(training_bp)
-app.register_blueprint(admin_bp)
-
 
 # ============================================================================
-# API ENDPOINTS
+# API ENDPOINTS (FULL ENTERPRISE VERSION)
 # ============================================================================
 
-# Authentication
+# -------------------------
+# AUTHENTICATION
+# -------------------------
+
 @app.route('/api/signup', methods=['POST'])
 def api_signup():
     """Create new user account."""
-    data = request.json
-    
+    data = request.json or {}
+
+    required = ['username', 'email', 'password']
+    for key in required:
+        if key not in data:
+            return jsonify({"error": f"Missing field: {key}"}), 400
+
     try:
         user_id = auth_manager.create_user(
             username=data['username'],
@@ -646,13 +642,13 @@ def api_signup():
             password=data['password'],
             role=data.get('role', 'annotator')
         )
-        
+
         return jsonify({
             "success": True,
             "user_id": user_id,
             "message": "Account created successfully"
         }), 201
-    
+
     except Exception as e:
         logger.error(f"❌ Signup error: {e}")
         return jsonify({"error": str(e)}), 400
@@ -661,128 +657,38 @@ def api_signup():
 @app.route('/api/login', methods=['POST'])
 def api_login():
     """Login and get JWT token."""
-    data = request.json
-    
+    data = request.json or {}
+
+    if 'username' not in data or 'password' not in data:
+        return jsonify({"error": "username and password required"}), 400
+
     user_data = auth_manager.authenticate(data['username'], data['password'])
-    
+
     if user_data:
-        # Create JWT token
         access_token = create_access_token(identity=user_data['user_id'])
-        
         return jsonify({
             "success": True,
             "access_token": access_token,
             "user": user_data
         })
-    
+
     return jsonify({"error": "Invalid credentials"}), 401
 
 
-# Dataset Upload
-@app.route('/api/upload_dataset', methods=['POST'])
-@jwt_required()
-def api_upload_dataset():
-    """Upload dataset (images/videos/text/audio)."""
-    
-    user_id = get_jwt_identity()
-    
-    if 'files' not in request.files:
-        return jsonify({"error": "No files provided"}), 400
-    
-    files = request.files.getlist('files')
-    project_id = request.form.get('project_id')
-    data_type = request.form.get('data_type', 'image')
-    
-    # Create dataset
-    dataset_id = str(uuid.uuid4())
-    
-    session = Session()
-    try:
-        dataset = Dataset(
-            id=dataset_id,
-            project_id=project_id,
-            name=request.form.get('name', f'Dataset {dataset_id[:8]}'),
-            data_type=data_type,
-            uploaded_by=user_id,
-            num_files=len(files)
-        )
-        session.add(dataset)
-        
-        # Upload files
-        uploaded_count = 0
-        total_size = 0
-        
-        for file in files:
-            file_data = file.read()
-            total_size += len(file_data)
-            
-            # Upload to storage
-            storage_location = storage_manager.upload_file(
-                file_data,
-                file.filename,
-                data_type
-            )
-            
-            # Create data item
-            item_id = str(uuid.uuid4())
-            data_hash = hashlib.sha256(file_data).hexdigest()
-            
-            item = DataItem(
-                id=item_id,
-                dataset_id=dataset_id,
-                project_id=project_id,
-                file_path=storage_location,
-                data_type=data_type,
-                data_hash=data_hash
-            )
-            session.add(item)
-            uploaded_count += 1
-            
-            if uploaded_count % 100 == 0:
-                logger.info(f"   Uploaded: {uploaded_count}/{len(files)}")
-        
-        dataset.size_bytes = total_size
-        session.commit()
-        
-        # Log audit
-        audit_logger.log(
-            user_id=user_id,
-            action="upload_dataset",
-            resource_type="dataset",
-            resource_id=dataset_id,
-            details={"num_files": len(files), "data_type": data_type},
-            ip_address=request.remote_addr
-        )
-        
-        # Process dataset in background
-        process_dataset_task(dataset_id)
-        
-        logger.info(f"✅ Dataset uploaded: {dataset_id} ({uploaded_count} files)")
-        
-        return jsonify({
-            "success": True,
-            "dataset_id": dataset_id,
-            "files_uploaded": uploaded_count,
-            "total_size_bytes": total_size
-        })
-    
-    except Exception as e:
-        logger.error(f"❌ Upload error: {e}")
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+# -------------------------
+# PROJECTS
+# -------------------------
 
-
-# Create Project
 @app.route('/api/create_project', methods=['POST'])
 @jwt_required()
 def api_create_project():
     """Create new project."""
-    
     user_id = get_jwt_identity()
-    data = request.json
-    
+    data = request.json or {}
+
+    if 'name' not in data:
+        return jsonify({"error": "Project name required"}), 400
+
     session = Session()
     try:
         project_id = str(uuid.uuid4())
@@ -794,7 +700,7 @@ def api_create_project():
         )
         session.add(project)
         session.commit()
-        
+
         audit_logger.log(
             user_id=user_id,
             action="create_project",
@@ -802,7 +708,7 @@ def api_create_project():
             resource_id=project_id,
             ip_address=request.remote_addr
         )
-        
+
         return jsonify({
             "success": True,
             "project_id": project_id
@@ -811,54 +717,481 @@ def api_create_project():
         session.close()
 
 
-# System Health
-@app.route('/api/health', methods=['GET'])
-def api_health():
-    """Get system health."""
-    return jsonify(system_monitor.get_health())
-
-
-# Metrics
-@app.route('/api/metrics', methods=['GET'])
+@app.route('/api/projects', methods=['GET'])
 @jwt_required()
-def api_metrics():
-    """Get system metrics."""
-    
-    # Record current metrics
-    system_monitor.record_metric("api_requests", 1)
-    
-    return jsonify({
-        "throughput": 1250,
-        "accuracy": 96.5,
-        "cve_pass_rate": 94.2,
-        "quality_score": 92
-    })
+def api_list_projects():
+    """List projects visible to the current user."""
+    user_id = get_jwt_identity()
+    session = Session()
+    try:
+        # Simple rule: return all projects for now.
+        projects = session.query(Project).order_by(Project.created_at.desc()).all()
+        out = []
+        for p in projects:
+            out.append({
+                "id": p.id,
+                "name": p.name,
+                "owner_id": p.owner_id,
+                "quality_tier": p.quality_tier,
+                "schema_version": p.schema_version,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+                "total_items": p.total_items,
+                "labeled_items": p.labeled_items,
+                "status": p.status,
+            })
+        return jsonify({"projects": out})
+    finally:
+        session.close()
 
-# ---------------------------------------------------------------------------
-# Phase 2 — Label Verification (CVE)
-# ---------------------------------------------------------------------------
+
+@app.route('/api/projects/<project_id>/summary', methods=['GET'])
+@jwt_required()
+def api_project_summary(project_id):
+    """Return basic stats for a single project."""
+    session = Session()
+    try:
+        project = session.query(Project).filter_by(id=project_id).first()
+        if not project:
+            return jsonify({"error": "Project not found"}), 404
+
+        # Item counts by status
+        status_counts = (
+            session.query(DataItem.status, func.count(DataItem.id))
+            .filter(DataItem.project_id == project_id)
+            .group_by(DataItem.status)
+            .all()
+        ) if 'func' in globals() else []
+
+        status_map = {s: int(c) for s, c in status_counts}
+
+        return jsonify({
+            "id": project.id,
+            "name": project.name,
+            "total_items": project.total_items,
+            "labeled_items": project.labeled_items,
+            "status": project.status,
+            "item_status_counts": status_map
+        })
+    finally:
+        session.close()
+
+
+# -------------------------
+# DATASETS & ITEMS
+# -------------------------
+
+@app.route('/api/upload_dataset', methods=['POST'])
+@jwt_required()
+def api_upload_dataset():
+    """Upload dataset (images/videos/text/audio)."""
+    user_id = get_jwt_identity()
+
+    if 'files' not in request.files:
+        return jsonify({"error": "No files provided"}), 400
+
+    files = request.files.getlist('files')
+    project_id = request.form.get('project_id')
+    data_type = request.form.get('data_type', 'image')
+
+    if not project_id:
+        return jsonify({"error": "project_id is required"}), 400
+
+    dataset_id = str(uuid.uuid4())
+    session = Session()
+    try:
+        dataset = Dataset(
+            id=dataset_id,
+            project_id=project_id,
+            name=request.form.get('name', f'Dataset {dataset_id[:8]}'),
+            data_type=data_type,
+            uploaded_by=user_id,
+            num_files=len(files)
+        )
+        session.add(dataset)
+
+        uploaded_count = 0
+        total_size = 0
+
+        for file in files:
+            file_data = file.read()
+            total_size += len(file_data)
+
+            storage_location = storage_manager.upload_file(
+                file_data,
+                file.filename,
+                data_type
+            )
+
+            item_id = str(uuid.uuid4())
+            data_hash = hashlib.sha256(file_data).hexdigest()
+
+            item = DataItem(
+                id=item_id,
+                dataset_id=dataset_id,
+                project_id=project_id,
+                file_path=storage_location,
+                data_type=data_type,
+                data_hash=data_hash,
+                status="pending",
+            )
+            session.add(item)
+            uploaded_count += 1
+
+        dataset.size_bytes = total_size
+
+        # Update project total_items
+        project = session.query(Project).filter_by(id=project_id).first()
+        if project:
+            project.total_items = (project.total_items or 0) + uploaded_count
+
+        session.commit()
+
+        audit_logger.log(
+            user_id=user_id,
+            action="upload_dataset",
+            resource_type="dataset",
+            resource_id=dataset_id,
+            details={"num_files": len(files), "data_type": data_type},
+            ip_address=request.remote_addr
+        )
+
+        process_dataset_task(dataset_id)
+
+        return jsonify({
+            "success": True,
+            "dataset_id": dataset_id,
+            "files_uploaded": uploaded_count,
+            "total_size_bytes": total_size
+        })
+
+    except Exception as e:
+        logger.error(f"❌ Upload error: {e}")
+        session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
+
+@app.route('/api/datasets', methods=['GET'])
+@jwt_required()
+def api_list_datasets():
+    """List datasets, optionally filtered by project_id."""
+    project_id = request.args.get('project_id')
+    session = Session()
+    try:
+        q = session.query(Dataset)
+        if project_id:
+            q = q.filter(Dataset.project_id == project_id)
+        datasets = q.order_by(Dataset.uploaded_at.desc()).all()
+
+        out = []
+        for d in datasets:
+            out.append({
+                "id": d.id,
+                "project_id": d.project_id,
+                "name": d.name,
+                "data_type": d.data_type,
+                "num_files": d.num_files,
+                "size_bytes": d.size_bytes,
+                "uploaded_by": d.uploaded_by,
+                "uploaded_at": d.uploaded_at.isoformat() if d.uploaded_at else None,
+                "processed": d.processed,
+            })
+        return jsonify({"datasets": out})
+    finally:
+        session.close()
+
+
+@app.route('/api/items/next', methods=['GET'])
+@jwt_required()
+def api_next_item():
+    """
+    Get the next item to label for a project.
+    Query params:
+      - project_id (required)
+      - data_type (optional)
+    """
+    user_id = get_jwt_identity()
+    project_id = request.args.get('project_id')
+    data_type = request.args.get('data_type')  # optional
+
+    if not project_id:
+        return jsonify({"error": "project_id is required"}), 400
+
+    session = Session()
+    try:
+        q = session.query(DataItem).filter(
+            DataItem.project_id == project_id,
+            DataItem.status == 'pending'
+        )
+        if data_type:
+            q = q.filter(DataItem.data_type == data_type)
+
+        item = q.order_by(DataItem.created_at.asc()).first()
+        if not item:
+            return jsonify({"message": "No more items to label"}), 200
+
+        # For now we just return path & type.
+        # Frontend decides how to render (image, video, text, audio).
+        return jsonify({
+            "item_id": item.id,
+            "project_id": item.project_id,
+            "dataset_id": item.dataset_id,
+            "data_type": item.data_type,
+            "file_path": item.file_path,
+            "status": item.status
+        })
+    finally:
+        session.close()
+
+
+# -------------------------
+# ANNOTATIONS
+# -------------------------
+
+@app.route('/api/annotations', methods=['POST'])
+@jwt_required()
+def api_submit_annotation():
+    """
+    Submit an annotation for an item.
+
+    Expected JSON:
+    {
+      "item_id": "...",
+      "labels": {...},     # human labels
+      "codes": {...},      # binary / logic codes
+      "confidence": 0.95,  # optional
+      "time_spent": 3.2    # optional (seconds)
+    }
+    """
+    user_id = get_jwt_identity()
+    data = request.json or {}
+
+    item_id = data.get("item_id")
+    if not item_id:
+        return jsonify({"error": "item_id is required"}), 400
+
+    labels = data.get("labels", {})
+    codes = data.get("codes", {})
+    confidence = data.get("confidence")
+    time_spent = data.get("time_spent")
+
+    session = Session()
+    try:
+        item = session.query(DataItem).filter_by(id=item_id).first()
+        if not item:
+            return jsonify({"error": "Data item not found"}), 404
+
+        ann_id = str(uuid.uuid4())
+        ann = Annotation(
+            id=ann_id,
+            item_id=item_id,
+            annotator_id=user_id,
+            labels=labels,
+            codes=codes,
+            confidence=confidence,
+            time_spent=time_spent,
+        )
+        session.add(ann)
+
+        # Mark item as labeled for now (you can later support multi-annotator stages)
+        item.status = "labeled"
+
+        # Update project labeled count
+        project = session.query(Project).filter_by(id=item.project_id).first()
+        if project:
+            project.labeled_items = (project.labeled_items or 0) + 1
+
+        session.commit()
+
+        audit_logger.log(
+            user_id=user_id,
+            action="submit_annotation",
+            resource_type="annotation",
+            resource_id=ann_id,
+            details={"item_id": item_id},
+            ip_address=request.remote_addr
+        )
+
+        return jsonify({
+            "success": True,
+            "annotation_id": ann_id,
+            "item_id": item_id,
+            "project_id": item.project_id
+        })
+
+    except Exception as e:
+        logger.error(f"❌ Annotation error: {e}")
+        session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
+
+@app.route('/api/annotations', methods=['GET'])
+@jwt_required()
+def api_list_annotations():
+    """
+    List annotations, with optional filters:
+      - project_id
+      - item_id
+      - annotator_id
+    """
+    project_id = request.args.get("project_id")
+    item_id = request.args.get("item_id")
+    annotator_id = request.args.get("annotator_id")
+
+    session = Session()
+    try:
+        q = session.query(Annotation)
+
+        if item_id:
+            q = q.filter(Annotation.item_id == item_id)
+        if annotator_id:
+            q = q.filter(Annotation.annotator_id == annotator_id)
+
+        # If project_id filter, join to DataItem
+        if project_id:
+            q = q.join(DataItem, Annotation.item_id == DataItem.id)\
+                 .filter(DataItem.project_id == project_id)
+
+        anns = q.order_by(Annotation.created_at.desc()).limit(1000).all()
+
+        out = []
+        for a in anns:
+            out.append({
+                "id": a.id,
+                "item_id": a.item_id,
+                "annotator_id": a.annotator_id,
+                "labels": a.labels,
+                "codes": a.codes,
+                "confidence": a.confidence,
+                "time_spent": a.time_spent,
+                "created_at": a.created_at.isoformat() if a.created_at else None
+            })
+        return jsonify({"annotations": out})
+    finally:
+        session.close()
+
+
+# -------------------------
+# EXPORT
+# -------------------------
+
+@app.route('/api/export/project/<project_id>', methods=['GET'])
+@jwt_required()
+def api_export_project(project_id):
+    """
+    Export all annotations for a project as CSV.
+
+    Returns a downloadable CSV file with:
+      item_id, annotator_id, labels_json, codes_json, confidence, time_spent
+    """
+    session = Session()
+    try:
+        project = session.query(Project).filter_by(id=project_id).first()
+        if not project:
+            return jsonify({"error": "Project not found"}), 404
+
+        # Join annotations + data items to ensure project filter
+        q = (
+            session.query(Annotation, DataItem)
+            .join(DataItem, Annotation.item_id == DataItem.id)
+            .filter(DataItem.project_id == project_id)
+        )
+
+        rows = []
+        for ann, item in q:
+            rows.append({
+                "item_id": ann.item_id,
+                "annotator_id": ann.annotator_id,
+                "labels": json.dumps(ann.labels or {}),
+                "codes": json.dumps(ann.codes or {}),
+                "confidence": ann.confidence,
+                "time_spent": ann.time_spent,
+                "data_type": item.data_type,
+                "file_path": item.file_path
+            })
+
+        if not rows:
+            return jsonify({"error": "No annotations found for this project"}), 404
+
+        export_name = f"export_{project_id}_{int(time.time())}.csv"
+        export_path = os.path.join(EXPORT_FOLDER, export_name)
+
+        import csv
+        fieldnames = [
+            "item_id",
+            "annotator_id",
+            "labels",
+            "codes",
+            "confidence",
+            "time_spent",
+            "data_type",
+            "file_path",
+        ]
+        with open(export_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in rows:
+                writer.writerow(row)
+
+        return send_file(
+            export_path,
+            as_attachment=True,
+            download_name=export_name,
+            mimetype="text/csv"
+        )
+    finally:
+        session.close()
+
+
+# -------------------------
+# CVE / PHASE 2
+# -------------------------
+
 @app.route('/api/verify_labels', methods=['POST'])
 @jwt_required()
 def api_verify_labels():
-    data = request.json
+    """
+    Run CVE verification on a batch of labels/annotations.
+    This is a direct wrapper around your ProductionCVE.verify().
+    Expected JSON:
+    {
+      "labels": [...],
+      "annotations": [...],
+      "tier": "production" | "research" | ...
+    }
+    """
+    data = request.json or {}
     labels = data.get("labels", [])
     annotations = data.get("annotations", [])
+    tier_name = data.get("tier", "production")
 
+    # Avoid circular import by importing QualityTier here if needed
     from phase2_production_system import QualityTier
-    tier = QualityTier.PRODUCTION
+
+    tier = getattr(QualityTier, tier_name.upper(), QualityTier.PRODUCTION)
 
     result = cve.verify(labels, annotations, tier=tier)
     return jsonify(result)
 
 
-
-# ---------------------------------------------------------------------------
-# Phase 3 — Run Scientific Experiment
-# ---------------------------------------------------------------------------
+# -------------------------
+# PHASE 3 — SCIENTIFIC EXPERIMENTS
+# -------------------------
 
 @app.route('/api/run_experiment', methods=['POST'])
 @jwt_required()
 def api_run_experiment():
+    """
+    Run a full Phase 3 experiment (simulated or real, depending on your code).
+    Expected JSON:
+    {
+      "dataset": "cifar10",
+      "num_samples": 10000
+    }
+    """
     body = request.json or {}
     dataset_name = body.get("dataset", "cifar10")
     num_samples = body.get("num_samples", 10000)
@@ -867,10 +1200,126 @@ def api_run_experiment():
     return jsonify(results)
 
 
+@app.route('/api/train_model', methods=['POST'])
+@jwt_required()
+def api_train_model():
+    """
+    Trigger model training for a project (asynchronous).
+    Expected JSON:
+    {
+      "project_id": "..."
+    }
+    """
+    data = request.json or {}
+    project_id = data.get("project_id")
+    if not project_id:
+        return jsonify({"error": "project_id is required"}), 400
+
+    # Fire-and-forget background job
+    task_info = train_model_task(project_id)
+    return jsonify({
+        "success": True,
+        "project_id": project_id,
+        "task": task_info
+    })
 
 
+# -------------------------
+# SYSTEM HEALTH & METRICS
+# -------------------------
 
-# Home page
+@app.route('/api/health', methods=['GET'])
+def api_health():
+    """Get system health."""
+    return jsonify(system_monitor.get_health())
+
+
+@app.route('/api/metrics', methods=['GET'])
+@jwt_required()
+def api_metrics():
+    """
+    Get high-level system / labeling metrics.
+    (For now we return static/sample numbers; you can later wire this
+    to real MetricsTracker or DB aggregates.)
+    """
+    return jsonify({
+        "throughput": 1250,
+        "accuracy": 96.5,
+        "cve_pass_rate": 94.2,
+        "quality_score": 92
+    })
+
+
+# -------------------------
+# ADMIN (OPTIONAL)
+# -------------------------
+
+def _require_admin(session, user_id: str):
+    """Helper: raise 403 if user is not admin."""
+    user = session.query(User).filter_by(id=user_id).first()
+    if not user or user.role != "admin":
+        return None
+    return user
+
+
+@app.route('/api/admin/users', methods=['GET'])
+@jwt_required()
+def api_admin_users():
+    """List users (admin only)."""
+    user_id = get_jwt_identity()
+    session = Session()
+    try:
+        admin = _require_admin(session, user_id)
+        if not admin:
+            return jsonify({"error": "Admin only"}), 403
+
+        users = session.query(User).order_by(User.created_at.desc()).all()
+        out = []
+        for u in users:
+            out.append({
+                "id": u.id,
+                "username": u.username,
+                "email": u.email,
+                "role": u.role,
+                "active": u.active,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+                "last_login": u.last_login.isoformat() if u.last_login else None
+            })
+        return jsonify({"users": out})
+    finally:
+        session.close()
+
+
+@app.route('/api/admin/stats', methods=['GET'])
+@jwt_required()
+def api_admin_stats():
+    """Simple global stats (admin only)."""
+    user_id = get_jwt_identity()
+    session = Session()
+    try:
+        admin = _require_admin(session, user_id)
+        if not admin:
+            return jsonify({"error": "Admin only"}), 403
+
+        users_count = session.query(User).count()
+        projects_count = session.query(Project).count()
+        items_count = session.query(DataItem).count()
+        anns_count = session.query(Annotation).count()
+
+        return jsonify({
+            "users": users_count,
+            "projects": projects_count,
+            "items": items_count,
+            "annotations": anns_count
+        })
+    finally:
+        session.close()
+
+
+# -------------------------
+# HOME PAGE (DOCUMENTATION)
+# -------------------------
+
 @app.route('/')
 def index():
     return render_template_string("""
@@ -985,28 +1434,28 @@ def index():
                 <ul>
                     <li>Images, videos, text, audio</li>
                     <li>Batch upload</li>
-                    <li>Cloud storage (S3)</li>
+                    <li>Cloud storage (S3/local)</li>
                     <li>Automatic processing</li>
                 </ul>
             </div>
             
             <div class="feature">
-                <h3>🤖 Background Workers</h3>
+                <h3>✏️ Annotation</h3>
                 <ul>
-                    <li>Celery task queue</li>
-                    <li>Async processing</li>
-                    <li>Model training</li>
-                    <li>Dataset processing</li>
+                    <li>Assign next items</li>
+                    <li>Submit labels</li>
+                    <li>Binary codes</li>
+                    <li>Time & confidence tracking</li>
                 </ul>
             </div>
-            
+
             <div class="feature">
                 <h3>📊 Monitoring</h3>
                 <ul>
                     <li>System health checks</li>
-                    <li>Metrics tracking</li>
+                    <li>Metrics API</li>
                     <li>Audit logs</li>
-                    <li>Performance monitoring</li>
+                    <li>Admin stats</li>
                 </ul>
             </div>
             
@@ -1016,73 +1465,74 @@ def index():
                     <li>Binary-anchored labels</li>
                     <li>CVE verification</li>
                     <li>Multi-annotator consensus</li>
-                    <li>Scientific validation</li>
+                    <li>Scientific experiments</li>
                 </ul>
             </div>
             
             <div class="feature">
                 <h3>🌐 Production Ready</h3>
                 <ul>
-                    <li>10M+ items scale</li>
-                    <li>Enterprise security</li>
-                    <li>Cloud deployment</li>
                     <li>REST API</li>
+                    <li>Cloud deployment</li>
+                    <li>Export to CSV</li>
+                    <li>Model training hooks</li>
                 </ul>
             </div>
         </div>
         
         <div class="api-docs">
-            <h3>📖 API Documentation</h3>
+            <h3>📖 Key API Endpoints</h3>
             
             <div class="endpoint">
                 <span class="method post">POST</span>
                 <strong>/api/signup</strong>
-                <pre>{ "username": "user", "email": "user@example.com", "password": "pass", "role": "annotator" }</pre>
             </div>
-            
             <div class="endpoint">
                 <span class="method post">POST</span>
                 <strong>/api/login</strong>
-                <pre>{ "username": "user", "password": "pass" }</pre>
-                <p style="color: #51cf66; margin-top: 10px;">Returns: JWT access_token</p>
             </div>
-            
-            <div class="endpoint">
-                <span class="method post">POST</span>
-                <strong>/api/upload_dataset</strong>
-                <pre>Headers: Authorization: Bearer &lt;token&gt;
-Form Data: files[], project_id, data_type</pre>
-            </div>
-            
             <div class="endpoint">
                 <span class="method post">POST</span>
                 <strong>/api/create_project</strong>
-                <pre>{ "name": "My Project", "tier": "production" }</pre>
             </div>
-            
             <div class="endpoint">
                 <span class="method get">GET</span>
-                <strong>/api/health</strong>
-                <p style="color: #4dabf7; margin-top: 10px;">Public endpoint - no auth required</p>
+                <strong>/api/projects</strong>
             </div>
-            
+            <div class="endpoint">
+                <span class="method post">POST</span>
+                <strong>/api/upload_dataset</strong>
+            </div>
+            <div class="endpoint">
+                <span class="method get">GET</span>
+                <strong>/api/items/next</strong>
+            </div>
+            <div class="endpoint">
+                <span class="method post">POST</span>
+                <strong>/api/annotations</strong>
+            </div>
+            <div class="endpoint">
+                <span class="method get">GET</span>
+                <strong>/api/export/project/&lt;project_id&gt;</strong>
+            </div>
+            <div class="endpoint">
+                <span class="method post">POST</span>
+                <strong>/api/verify_labels</strong>
+            </div>
+            <div class="endpoint">
+                <span class="method post">POST</span>
+                <strong>/api/run_experiment</strong>
+            </div>
             <div class="endpoint">
                 <span class="method get">GET</span>
                 <strong>/api/metrics</strong>
-                <p style="color: #4dabf7; margin-top: 10px;">Requires JWT token</p>
             </div>
-        </div>
-        
-        <div style="text-align: center; margin-top: 60px;">
-            <h3 style="color: #667eea; font-size: 2em;">🚀 Ready for Enterprise Deployment</h3>
-            <p style="font-size: 1.3em; color: #666; margin-top: 20px;">
-                Use Postman, curl, or any HTTP client to test the API
-            </p>
         </div>
     </div>
 </body>
 </html>
     """)
+
 
 
 # ============================================================================
@@ -1109,6 +1559,7 @@ def open_browser():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
 
 
