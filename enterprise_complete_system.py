@@ -545,7 +545,7 @@ class SystemMonitor:
                 id=str(uuid.uuid4()),
                 metric_name=name,
                 metric_value=value,
-                metadata=metadata or {}
+                metadata_json=metadata or {}
             )
             session.add(metric)
             session.commit()
@@ -1551,6 +1551,7 @@ def open_browser():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
 
 
