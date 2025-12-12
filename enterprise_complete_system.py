@@ -63,6 +63,7 @@ import logging
 # Import core logic from phases
 from phase2_production_system import OntologyManager, ProductionCVE, MetricsTracker
 from phase3_scientific_validation import ExperimentController
+from sqlalchemy import func
 
 # Core imports
 from flask import Flask, render_template_string, request, jsonify, send_file
@@ -1548,6 +1549,7 @@ def open_browser():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
 
 
