@@ -60,10 +60,6 @@ from collections import defaultdict
 from functools import wraps
 import logging
 
-# 🔥 ENSURE PYTHON CAN FIND routes/ ON RENDER
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(BASE_DIR)
-
 # Import core logic from phases
 from phase2_production_system import OntologyManager, ProductionCVE, MetricsTracker
 from phase3_scientific_validation import ExperimentController
@@ -75,13 +71,6 @@ import numpy as np
 from scipy import stats
 import pandas as pd
 
-# 🔥 BLUEPRINT IMPORTS
-from routes.dataset_routes import dataset_bp
-from routes.item_routes import item_bp
-from routes.annotation_routes import annotation_bp
-from routes.export_routes import export_bp
-from routes.training_routes import training_bp
-from routes.admin_routes import admin_bp
 
 
 # Database
@@ -1559,6 +1548,7 @@ def open_browser():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
 
 
