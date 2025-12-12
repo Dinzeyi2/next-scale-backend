@@ -601,9 +601,10 @@ system_monitor = SystemMonitor()
 # ============================================================================
 
 app = Flask(__name__)
+CORS(app)  # <-- ADD THIS LINE
 app.config['JWT_SECRET_KEY'] = JWT_SECRET_KEY
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = JWT_ACCESS_TOKEN_EXPIRES
-app.config['MAX_CONTENT_LENGTH'] = 1000 * 1024 * 1024  # 1GB max
+app.config['MAX_CONTENT_LENGTH'] = 1000 * 1024 * 1024
 
 jwt = JWTManager(app)
 
@@ -1550,6 +1551,7 @@ def open_browser():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
 
 
