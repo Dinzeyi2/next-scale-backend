@@ -68,6 +68,7 @@ from sqlalchemy import func
 # Core imports
 from flask import Flask, render_template_string, request, jsonify, send_file
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_cors import CORS
 import numpy as np
 from scipy import stats
 import pandas as pd
@@ -1549,6 +1550,7 @@ def open_browser():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
 
 
 
